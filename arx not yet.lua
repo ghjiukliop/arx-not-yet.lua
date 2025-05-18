@@ -1087,41 +1087,37 @@ StorySection:AddToggle("AutoJoinMapToggle", {
 
 -- Auto Join Highest Story 
 -- ...existing code...
+-- Biến lưu trạng thái Auto Join Highest Story
+local autoJoinHighestStoryEnabled = ConfigSystem.CurrentConfig.AutoJoinHighestStory or false
+local autoJoinHighestStoryLoop = nil
 
--- Auto Join Highest Story with State Saving
-local player = game:GetService("Players").LocalPlayer
-local playerName = player.Name
-local playerData = game:GetService("ReplicatedStorage"):FindFirstChild("Player_Data")
-local playerFolder = playerData and playerData:FindFirstChild(playerName)
-local chapterLevels = playerFolder and playerFolder:FindFirstChild("ChapterLevels")
-
--- Tạo biến lưu trạng thái nếu chưa tồn tại
-local autoJoinState = playerFolder:FindFirstChild("AutoJoinState")
-if not autoJoinState then
-    autoJoinState = Instance.new("BoolValue")
-    autoJoinState.Name = "AutoJoinState"
-    autoJoinState.Value = false
-    autoJoinState.Parent = playerFolder
+-- Hàm lấy map và chapter hiện tại của người chơi
+local function getCurrentMapAndChapter()
+    local player = game:GetService("Players").LocalPlayer
+    local playerData = game:GetService("ReplicatedStorage"):FindFirstChild("Player_Data")
+    local playerFolder = playerData and playerData:FindFirstChild(player.Name)
+    local currentMap = playerFolder and playerFolder:FindFirstChild("CurrentMap") and playerFolder.CurrentMap.Value
+    local currentChapter = playerFolder and playerFolder:FindFirstChild("CurrentChapter") and playerFolder.CurrentChapter.Value
+    return currentMap, currentChapter
 end
 
--- Lấy trạng thái hiện tại
-local isAutoJoinEnabled = autoJoinState.Value
+-- Hàm tìm và join highest story
+local function findAndJoinHighestStory()
+    local player = game:GetService("Players").LocalPlayer
+    local playerData = game:GetService("ReplicatedStorage"):FindFirstChild("Player_Data")
+    local playerFolder = playerData and playerData:FindFirstChild(player.Name)
+    local chapterLevels = playerFolder and playerFolder:FindFirstChild("ChapterLevels")
 
--- Map thứ tự ưu tiên
-local mapOrder = {"OnePiece", "Namek", "DemonSlayer", "Naruto", "OPM"}
-
--- Hàm lấy Highest Story
-local function getHighestStory()
+    -- Map thứ tự ưu tiên
+    local mapOrder = {"OnePiece", "Namek", "DemonSlayer", "Naruto", "OPM"}
     local highestMap, highestChapter = nil, nil
 
     if chapterLevels then
         for i = #mapOrder, 1, -1 do
             local map = mapOrder[i]
-
             if chapterLevels:FindFirstChild(map .. "_Chapter1") then
                 for j = 10, 1, -1 do
                     local chapterName = map .. "_Chapter" .. j
-
                     if chapterLevels:FindFirstChild(chapterName) then
                         highestMap = map
                         highestChapter = "Chapter" .. j
@@ -1129,93 +1125,79 @@ local function getHighestStory()
                     end
                 end
             end
-
             if highestMap then break end
         end
     end
 
-    return highestMap, highestChapter
-end
-
--- Hàm join map
-local function joinMap(highestMap, highestChapter)
-    local Event = game:GetService("ReplicatedStorage"):FindFirstChild("Remote"):FindFirstChild("Server"):FindFirstChild("PlayRoom"):FindFirstChild("Event")
-
-    if not Event then
-        warn("Không tìm thấy Event để join map.")
-        return
-    end
-
-    -- 1. Tạo phòng
-    Event:FireServer("Create")
-    wait(0.5)
-
-    -- 2. Chọn map
-    Event:FireServer("Change-World", { ["World"] = highestMap })
-    wait(0.5)
-
-    -- 3. Chọn chapter
-    Event:FireServer("Change-Chapter", { ["Chapter"] = highestMap .. "_" .. highestChapter })
-    wait(0.5)
-
-    -- 4. Chọn difficulty
-    Event:FireServer("Change-Difficulty", { ["Difficulty"] = "Normal" })
-    wait(0.5)
-
-    -- 5. Submit
-    Event:FireServer("Submit")
-    wait(1)
-
-    -- 6. Start
-    Event:FireServer("Start")
-
-    print("Đã join map: " .. highestMap .. " - " .. highestChapter)
-end
-
--- Hàm Auto Join
-local function autoJoin()
-    while isAutoJoinEnabled do
-        local highestMap, highestChapter = getHighestStory()
-
-        if highestMap and highestChapter then
-            print("Đã tìm thấy highest story để join: " .. highestMap .. " - " .. highestChapter)
-            joinMap(highestMap, highestChapter)
-        else
-            print("Không tìm thấy highest story để join.")
+    if highestMap and highestChapter then
+        local currentMap, currentChapter = getCurrentMapAndChapter()
+        if currentMap == highestMap and currentChapter == highestChapter then
+            print("Người chơi đã ở trong map cao nhất: " .. highestMap .. " - " .. highestChapter)
+            return
         end
 
-        wait(5)
+        print("Đã tìm thấy highest story để join: " .. highestMap .. " - " .. highestChapter)
+
+        -- Thực hiện join map
+        local function joinMap()
+            local Event = game:GetService("ReplicatedStorage"):FindFirstChild("Remote"):FindFirstChild("Server"):FindFirstChild("PlayRoom"):FindFirstChild("Event")
+            if not Event then
+                warn("Không tìm thấy Event để join map.")
+                return
+            end
+            Event:FireServer("Create")
+            wait(0.5)
+            Event:FireServer("Change-World", { ["World"] = highestMap })
+            wait(0.5)
+            Event:FireServer("Change-Chapter", { ["Chapter"] = highestMap .. "_" .. highestChapter })
+            wait(0.5)
+            Event:FireServer("Change-Difficulty", { ["Difficulty"] = "Normal" })
+            wait(0.5)
+            Event:FireServer("Submit")
+            wait(1)
+            Event:FireServer("Start")
+            print("Đã join map: " .. highestMap .. " - " .. highestChapter)
+        end
+
+        joinMap()
+    else
+        print("Không tìm thấy highest story để join.")
     end
 end
 
--- Hàm bật/tắt Auto Join và lưu trạng thái
-local function setAutoJoinState(state)
-    isAutoJoinEnabled = state
-    autoJoinState.Value = state
-    print("Auto Join Highest Story: " .. (state and "Enabled" or "Disabled"))
+-- Hàm xử lý toggle Auto Join Highest Story
+local function toggleAutoJoinHighestStory(state)
+    autoJoinHighestStoryEnabled = state
+    ConfigSystem.CurrentConfig.AutoJoinHighestStory = state
+    ConfigSystem.SaveConfig()
 
-    if state then
-        task.spawn(autoJoin)
+    if autoJoinHighestStoryEnabled then
+        print("Auto Join Highest Story đã được bật")
+        autoJoinHighestStoryLoop = task.spawn(function()
+            while autoJoinHighestStoryEnabled do
+                findAndJoinHighestStory()
+                wait(10)
+            end
+        end)
+    else
+        print("Auto Join Highest Story đã được tắt")
+        if autoJoinHighestStoryLoop then
+            task.cancel(autoJoinHighestStoryLoop)
+            autoJoinHighestStoryLoop = nil
+        end
     end
 end
-
--- Kiểm tra trạng thái ban đầu và tự động chạy nếu `true`
-if isAutoJoinEnabled then
-    task.spawn(autoJoin)
-end
-
 
 -- Thêm Toggle vào tab Play
 local StorySection = PlayTab:AddSection("Story")
 
 StorySection:AddToggle("AutoJoinHighestStoryToggle", {
     Title = "Auto Join Highest Story",
-    Default = false,
+    Default = autoJoinHighestStoryEnabled,
     Callback = function(value)
         toggleAutoJoinHighestStory(value)
     end
 })
-
 
 -- end
 -- Hiển thị trạng thái trong game
@@ -5038,4 +5020,161 @@ StatsPotentialSection:AddToggle("RollStatsPotentialToggle", {
     end
 })
 
+-- Thêm section Trait Reroll trong tab Unit
+local TraitRerollSection = UnitTab:AddSection("Trait Reroll")
 
+-- Hàm lấy danh sách unit và PrimaryTrait
+local function getUnitListWithTraits()
+    local player = game:GetService("Players").LocalPlayer
+    local playerData = game:GetService("ReplicatedStorage"):FindFirstChild("Player_Data")
+    local collectionFolder = playerData and playerData:FindFirstChild(player.Name) and playerData[player.Name]:FindFirstChild("Collection")
+
+    if not collectionFolder then
+        warn("Không tìm thấy thư mục Collection của người chơi!")
+        return {}
+    end
+
+    local unitList = {}
+    local unitCountMap = {}
+
+    -- Lặp qua các unit trong Collection
+    for _, unit in pairs(collectionFolder:GetChildren()) do
+        if unit:IsA("Folder") or unit:IsA("Model") then
+            local unitName = unit.Name
+            local primaryTrait = unit:FindFirstChild("PrimaryTrait") and unit.PrimaryTrait.Value or "None"
+
+            -- Đếm số lượng unit trùng tên
+            unitCountMap[unitName] = (unitCountMap[unitName] or 0) + 1
+            local displayName = unitName .. " (Trait: " .. primaryTrait .. ")"
+
+            -- Nếu có trùng tên, thêm số thứ tự
+            if unitCountMap[unitName] > 1 then
+                displayName = displayName .. " #" .. unitCountMap[unitName]
+            end
+
+            table.insert(unitList, displayName)
+        end
+    end
+
+    table.sort(unitList) -- Sắp xếp danh sách theo thứ tự bảng chữ cái
+    return unitList
+end
+
+-- Biến lưu unit được chọn từ dropdown
+local selectedUnitForReroll = nil
+
+-- Dropdown hiển thị danh sách unit và PrimaryTrait
+TraitRerollSection:AddDropdown("UnitDropdownWithTraits", {
+    Title = "Choose Unit (with Traits)",
+    Values = getUnitListWithTraits(),
+    Multi = false,
+    Default = "",
+    Callback = function(selectedUnit)
+        selectedUnitForReroll = selectedUnit
+        print("Đã chọn unit:", selectedUnit)
+    end
+})
+
+-- Danh sách các trait hiện tại
+local availableTraits = {
+    "Brute",
+    "Sniper",
+    "Colossal",
+    "Investor",
+    "Jokester",
+    "Blitz",
+    "Juggernaut",
+    "Millionaire",
+    "Violent",
+    "Seraph",
+    "Capitalist",
+    "Duplicator",
+    "Sovereign"
+}
+
+-- Biến lưu các trait được chọn
+local selectedTraits = {}
+
+-- Dropdown cho phép chọn nhiều trait
+TraitRerollSection:AddDropdown("TraitSelectionDropdown", {
+    Title = "Select Traits",
+    Values = availableTraits,
+    Multi = true, -- Cho phép chọn nhiều
+    Default = {}, -- Không chọn gì mặc định
+    Callback = function(selectedValues)
+        selectedTraits = {} -- Reset danh sách trước khi cập nhật
+        for trait, isSelected in pairs(selectedValues) do
+            if isSelected then
+                table.insert(selectedTraits, trait)
+            end
+        end
+
+        if #selectedTraits > 0 then
+            print("Các trait đã chọn (" .. #selectedTraits .. "): " .. table.concat(selectedTraits, ", "))
+        else
+            print("Không có trait nào được chọn.")
+        end
+    end
+})
+
+-- Hàm thực hiện reroll bằng Shards
+local function rerollTraitWithShards()
+    if not selectedUnitForReroll then
+        warn("Vui lòng chọn unit trước khi thực hiện reroll bằng Shards.")
+        return false
+    end
+
+    local unitName = selectedUnitForReroll:match("^(.-) %(") -- Lấy tên unit từ chuỗi
+    if not unitName then
+        warn("Không thể lấy tên unit từ lựa chọn.")
+        return false
+    end
+
+    local player = game:GetService("Players").LocalPlayer
+    local unit = game:GetService("ReplicatedStorage").Player_Data:FindFirstChild(player.Name).Collection:FindFirstChild(unitName)
+    if not unit then
+        warn("Không tìm thấy unit trong Collection.")
+        return false
+    end
+
+    local currentTrait = unit:FindFirstChild("PrimaryTrait") and unit.PrimaryTrait.Value or "None"
+    if table.find(selectedTraits, currentTrait) then
+        print("Unit đã đạt trait mong muốn:", currentTrait)
+        return true -- Dừng reroll nếu đạt trait mong muốn
+    end
+
+    local args = {
+        [1] = unit,
+        [2] = "Reroll",
+        [3] = "Main",
+        [4] = "Shards"
+    }
+
+    game:GetService("ReplicatedStorage").Remote.Server.Gambling.RerollTrait:FireServer(unpack(args))
+    print("Đã reroll trait cho unit:", unitName, "bằng Shards. Trait hiện tại:", currentTrait)
+    return false -- Tiếp tục reroll nếu chưa đạt trait mong muốn
+end
+
+-- Toggle Auto Reroll Trait với Shards
+TraitRerollSection:AddToggle("AutoRerollShardsToggle", {
+    Title = "Auto Reroll with Shards",
+    Default = false,
+    Callback = function(enabled)
+        autoRerollShardsEnabled = enabled -- Sử dụng biến toàn cục
+        if enabled then
+            print("Auto Reroll with Shards đã được bật.")
+            spawn(function()
+                while autoRerollShardsEnabled do
+                    local success = rerollTraitWithShards()
+                    if success or not autoRerollShardsEnabled then
+                        print("Đã đạt trait mong muốn hoặc Auto Reroll đã bị tắt. Dừng Auto Reroll.")
+                        break -- Thoát vòng lặp nếu đạt trait mong muốn hoặc người chơi tắt
+                    end
+                    wait(1) -- Thời gian chờ giữa các lần reroll
+                end
+            end)
+        else
+            print("Auto Reroll with Shards đã được tắt.")
+        end
+    end
+})
