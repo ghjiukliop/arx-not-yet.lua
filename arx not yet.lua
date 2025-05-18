@@ -1087,6 +1087,7 @@ StorySection:AddToggle("AutoJoinMapToggle", {
 
 -- Auto Join Highest Story 
 -- ...existing code...
+
 -- Thêm Toggle Auto Join Highest Story vào dưới Auto Join Map trong StorySection
 StorySection:AddToggle("AutoJoinHighestStoryToggle", {
     Title = "Auto Join Highest Story",
@@ -1104,40 +1105,34 @@ StorySection:AddToggle("AutoJoinHighestStoryToggle", {
                     local playerData = game:GetService("ReplicatedStorage"):FindFirstChild("Player_Data")
                     local playerFolder = playerData and playerData:FindFirstChild(playerName)
                     local chapterLevels = playerFolder and playerFolder:FindFirstChild("ChapterLevels")
-
                     -- Map thứ tự ưu tiên
                     local mapOrder = {"OnePiece", "Namek", "DemonSlayer", "Naruto", "OPM"}
                     local highestMap, highestChapter = nil, nil
-
                     if chapterLevels then
-                        for i = #mapOrder, 1, -1 do  -- duyệt từ map cuối đến đầu
-                            local map = mapOrder[i]
-                            for j = 10, 1, -1 do  -- duyệt chapter từ cao đến thấp
-                                local chapterName = map .. "_Chapter" .. j
+                        for _, map in ipairs(mapOrder) do
+                            for i = 10, 1, -1 do
+                                local chapterName = map .. "_Chapter" .. i
                                 if chapterLevels:FindFirstChild(chapterName) then
                                     highestMap = map
-                                    highestChapter = "Chapter" .. j
+                                    highestChapter = "Chapter" .. i
                                     break
                                 end
                             end
                             if highestMap then break end
                         end
                     end
-
                     if highestMap and highestChapter then
                         -- Đổi map và chapter
-                        local realMapName = reverseMapNameMapping and reverseMapNameMapping[highestMap] or highestMap
-                        changeWorld(realMapName)
+                        changeWorld(reverseMapNameMapping[highestMap] or highestMap)
                         wait(0.5)
                         changeChapter(highestMap, highestChapter)
                         wait(0.5)
                         -- Join map
                         joinMap()
-                        print("Đã auto join highest story: " .. realMapName .. " - " .. highestChapter)
+                        print("Đã auto join highest story: " .. (reverseMapNameMapping[highestMap] or highestMap) .. " - " .. highestChapter)
                     else
                         print("Không tìm thấy highest story để join.")
                     end
-
                     -- Đợi trước khi thử lại
                     for _ = 1, storyTimeDelay do
                         if not ConfigSystem.CurrentConfig.AutoJoinHighestStory then break end
