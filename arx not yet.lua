@@ -1087,20 +1087,6 @@ StorySection:AddToggle("AutoJoinMapToggle", {
 
 -- Auto Join Highest Story 
 -- ...existing code...
--- Hàm join map thủ công theo map + chapter được chỉ định
-function joinMapManually(mapName, chapterName)
-    local replicatedStorage = game:GetService("ReplicatedStorage")
-    local playRoomRemote = replicatedStorage.Remote.Server.PlayRoom.Event
-
-    -- Gửi sự kiện tạo phòng với thông tin cụ thể
-    playRoomRemote:FireServer({
-        World = mapName,
-        Chapter = chapterName,
-        Difficulty = ConfigSystem.CurrentConfig.SelectedDifficulty or "Normal",
-        FriendOnly = ConfigSystem.CurrentConfig.FriendOnly or false
-    })
-end
-
 -- Thêm Toggle Auto Join Highest Story vào dưới Auto Join Map trong StorySection
 StorySection:AddToggle("AutoJoinHighestStoryToggle", {
     Title = "Auto Join Highest Story",
@@ -1139,10 +1125,14 @@ StorySection:AddToggle("AutoJoinHighestStoryToggle", {
                     end
 
                     if highestMap and highestChapter then
-                        -- Đổi tên map nếu có ánh xạ
+                        -- Đổi map và chapter
                         local realMapName = reverseMapNameMapping and reverseMapNameMapping[highestMap] or highestMap
-                        -- Join map trực tiếp theo dữ liệu đã tìm được
-                        joinMapManually(realMapName, highestChapter)
+                        changeWorld(realMapName)
+                        wait(0.5)
+                        changeChapter(highestMap, highestChapter)
+                        wait(0.5)
+                        -- Join map
+                        joinMap()
                         print("Đã auto join highest story: " .. realMapName .. " - " .. highestChapter)
                     else
                         print("Không tìm thấy highest story để join.")
@@ -1160,7 +1150,6 @@ StorySection:AddToggle("AutoJoinHighestStoryToggle", {
         end
     end
 })
-
 
 -- end
 -- Hiển thị trạng thái trong game
