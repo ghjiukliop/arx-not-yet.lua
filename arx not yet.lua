@@ -1087,40 +1087,31 @@ StorySection:AddToggle("AutoJoinMapToggle", {
 
 -- Auto Join Highest Story 
 -- ...existing code...
--- Auto Join Highest Story with State Saving
-local player = game:GetService("Players").LocalPlayer
-local playerName = player.Name
-local playerData = game:GetService("ReplicatedStorage"):FindFirstChild("Player_Data")
-local playerFolder = playerData and playerData:FindFirstChild(playerName)
-local chapterLevels = playerFolder and playerFolder:FindFirstChild("ChapterLevels")
 
--- Tạo biến lưu trạng thái nếu chưa tồn tại
-local autoJoinState = playerFolder:FindFirstChild("AutoJoinState")
-if not autoJoinState then
-    autoJoinState = Instance.new("BoolValue")
-    autoJoinState.Name = "AutoJoinState"
-    autoJoinState.Value = false
-    autoJoinState.Parent = playerFolder
-end
+-- Biến lưu trạng thái Auto Join Highest Story
+local autoJoinHighestStoryEnabled = false
+local autoJoinHighestStoryLoop = nil
 
--- Lấy trạng thái hiện tại
-local isAutoJoinEnabled = autoJoinState.Value
+-- Hàm tìm và join highest story
+local function findAndJoinHighestStory()
+    local player = game:GetService("Players").LocalPlayer
+    local playerName = player.Name
+    local playerData = game:GetService("ReplicatedStorage"):FindFirstChild("Player_Data")
+    local playerFolder = playerData and playerData:FindFirstChild(playerName)
+    local chapterLevels = playerFolder and playerFolder:FindFirstChild("ChapterLevels")
 
--- Map thứ tự ưu tiên
-local mapOrder = {"OnePiece", "Namek", "DemonSlayer", "Naruto", "OPM"}
-
--- Hàm lấy Highest Story
-local function getHighestStory()
+    -- Map thứ tự ưu tiên
+    local mapOrder = {"OnePiece", "Namek", "DemonSlayer", "Naruto", "OPM"}
     local highestMap, highestChapter = nil, nil
 
     if chapterLevels then
         for i = #mapOrder, 1, -1 do
             local map = mapOrder[i]
-
+            
             if chapterLevels:FindFirstChild(map .. "_Chapter1") then
                 for j = 10, 1, -1 do
                     local chapterName = map .. "_Chapter" .. j
-
+                    
                     if chapterLevels:FindFirstChild(chapterName) then
                         highestMap = map
                         highestChapter = "Chapter" .. j
@@ -1133,75 +1124,81 @@ local function getHighestStory()
         end
     end
 
-    return highestMap, highestChapter
-end
+    if highestMap and highestChapter then
+        print("Đã tìm thấy highest story để join: " .. highestMap .. " - " .. highestChapter)
 
--- Hàm join map
-local function joinMap(highestMap, highestChapter)
-    local Event = game:GetService("ReplicatedStorage"):FindFirstChild("Remote"):FindFirstChild("Server"):FindFirstChild("PlayRoom"):FindFirstChild("Event")
-
-    if not Event then
-        warn("Không tìm thấy Event để join map.")
-        return
-    end
-
-    -- 1. Tạo phòng
-    Event:FireServer("Create")
-    wait(0.5)
-
-    -- 2. Chọn map
-    Event:FireServer("Change-World", { ["World"] = highestMap })
-    wait(0.5)
-
-    -- 3. Chọn chapter
-    Event:FireServer("Change-Chapter", { ["Chapter"] = highestMap .. "_" .. highestChapter })
-    wait(0.5)
-
-    -- 4. Chọn difficulty
-    Event:FireServer("Change-Difficulty", { ["Difficulty"] = "Normal" })
-    wait(0.5)
-
-    -- 5. Submit
-    Event:FireServer("Submit")
-    wait(1)
-
-    -- 6. Start
-    Event:FireServer("Start")
-
-    print("Đã join map: " .. highestMap .. " - " .. highestChapter)
-end
-
--- Hàm Auto Join
-local function autoJoin()
-    while isAutoJoinEnabled do
-        local highestMap, highestChapter = getHighestStory()
-
-        if highestMap and highestChapter then
-            print("Đã tìm thấy highest story để join: " .. highestMap .. " - " .. highestChapter)
-            joinMap(highestMap, highestChapter)
-        else
-            print("Không tìm thấy highest story để join.")
+        -- Thực hiện join map
+        local function joinMap()
+            local Event = game:GetService("ReplicatedStorage"):FindFirstChild("Remote"):FindFirstChild("Server"):FindFirstChild("PlayRoom"):FindFirstChild("Event")
+            
+            if not Event then
+                warn("Không tìm thấy Event để join map.")
+                return
+            end
+            
+            -- Tạo phòng
+            Event:FireServer("Create")
+            wait(0.5)
+            
+            -- Chọn map
+            Event:FireServer("Change-World", {["World"] = highestMap})
+            wait(0.5)
+            
+            -- Chọn chapter
+            Event:FireServer("Change-Chapter", {["Chapter"] = highestMap .. "_" .. highestChapter})
+            wait(0.5)
+            
+            -- Chọn difficulty (có thể tùy chỉnh)
+            Event:FireServer("Change-Difficulty", {["Difficulty"] = "Normal"})
+            wait(0.5)
+            
+            -- Submit và Start
+            Event:FireServer("Submit")
+            wait(1)
+            Event:FireServer("Start")
+            
+            print("Đã join map: " .. highestMap .. " - " .. highestChapter)
         end
-
-        wait(5)
+        
+        joinMap()
+    else
+        print("Không tìm thấy highest story để join.")
     end
 end
 
--- Hàm bật/tắt Auto Join và lưu trạng thái
-local function setAutoJoinState(state)
-    isAutoJoinEnabled = state
-    autoJoinState.Value = state
-    print("Auto Join Highest Story: " .. (state and "Enabled" or "Disabled"))
+-- Hàm xử lý toggle Auto Join Highest Story
+local function toggleAutoJoinHighestStory(state)
+    autoJoinHighestStoryEnabled = state
 
-    if state then
-        task.spawn(autoJoin)
+    if autoJoinHighestStoryEnabled then
+        print("Auto Join Highest Story đã được bật")
+        
+        -- Tạo vòng lặp Auto Join
+        autoJoinHighestStoryLoop = task.spawn(function()
+            while autoJoinHighestStoryEnabled do
+                findAndJoinHighestStory()
+                wait(10) -- Thời gian chờ giữa các lần kiểm tra
+            end
+        end)
+    else
+        print("Auto Join Highest Story đã được tắt")
+        if autoJoinHighestStoryLoop then
+            task.cancel(autoJoinHighestStoryLoop)
+            autoJoinHighestStoryLoop = nil
+        end
     end
 end
 
--- Kiểm tra trạng thái ban đầu và tự động chạy nếu `true`
-if isAutoJoinEnabled then
-    task.spawn(autoJoin)
-end
+-- Thêm Toggle vào tab Play
+local StorySection = PlayTab:AddSection("Story")
+
+StorySection:AddToggle("AutoJoinHighestStoryToggle", {
+    Title = "Auto Join Highest Story",
+    Default = false,
+    Callback = function(value)
+        toggleAutoJoinHighestStory(value)
+    end
+})
 
 
 -- end
