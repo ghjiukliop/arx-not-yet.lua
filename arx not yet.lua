@@ -1086,10 +1086,10 @@ StorySection:AddToggle("AutoJoinMapToggle", {
 })
 
 -- Auto Join Highest Story 
--- ...existing code...
 -- Biến lưu trạng thái Auto Join Highest Story
 local autoJoinHighestStoryEnabled = ConfigSystem.CurrentConfig.AutoJoinHighestStory or false
 local autoJoinHighestStoryLoop = nil
+local isInHighestStory = false
 
 -- Hàm lấy map và chapter hiện tại của người chơi
 local function getCurrentMapAndChapter()
@@ -1103,6 +1103,11 @@ end
 
 -- Hàm tìm và join highest story
 local function findAndJoinHighestStory()
+    if isInHighestStory then
+        print("Người chơi đang ở trong map cao nhất, không thực hiện join.")
+        return
+    end
+
     local player = game:GetService("Players").LocalPlayer
     local playerData = game:GetService("ReplicatedStorage"):FindFirstChild("Player_Data")
     local playerFolder = playerData and playerData:FindFirstChild(player.Name)
@@ -1133,6 +1138,7 @@ local function findAndJoinHighestStory()
         local currentMap, currentChapter = getCurrentMapAndChapter()
         if currentMap == highestMap and currentChapter == highestChapter then
             print("Người chơi đã ở trong map cao nhất: " .. highestMap .. " - " .. highestChapter)
+            isInHighestStory = true
             return
         end
 
@@ -1157,6 +1163,7 @@ local function findAndJoinHighestStory()
             wait(1)
             Event:FireServer("Start")
             print("Đã join map: " .. highestMap .. " - " .. highestChapter)
+            isInHighestStory = true
         end
 
         joinMap()
@@ -1170,6 +1177,7 @@ local function toggleAutoJoinHighestStory(state)
     autoJoinHighestStoryEnabled = state
     ConfigSystem.CurrentConfig.AutoJoinHighestStory = state
     ConfigSystem.SaveConfig()
+    isInHighestStory = false
 
     if autoJoinHighestStoryEnabled then
         print("Auto Join Highest Story đã được bật")
@@ -1198,6 +1206,8 @@ StorySection:AddToggle("AutoJoinHighestStoryToggle", {
         toggleAutoJoinHighestStory(value)
     end
 })
+
+
 
 -- end
 -- Hiển thị trạng thái trong game
