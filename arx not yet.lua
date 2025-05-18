@@ -1087,18 +1087,17 @@ StorySection:AddToggle("AutoJoinMapToggle", {
 
 -- Auto Join Highest Story 
 -- ...existing code...
-
--- Thêm Toggle Auto Join Highest Story vào dưới Auto Join Map trong StorySection
-StorySection:AddToggle("AutoJoinHighestStoryToggle", {
-    Title = "Auto Join Highest Story",
-    Default = ConfigSystem.CurrentConfig.AutoJoinHighestStory or false,
+-- Thêm Toggle Auto Join Lowest Story vào dưới Auto Join Map trong StorySection
+StorySection:AddToggle("AutoJoinLowestStoryToggle", {
+    Title = "Auto Join Lowest Story",
+    Default = ConfigSystem.CurrentConfig.AutoJoinLowestStory or false,
     Callback = function(Value)
-        ConfigSystem.CurrentConfig.AutoJoinHighestStory = Value
+        ConfigSystem.CurrentConfig.AutoJoinLowestStory = Value
         ConfigSystem.SaveConfig()
         if Value then
-            print("Auto Join Highest Story đã được bật")
+            print("Auto Join Lowest Story đã được bật")
             spawn(function()
-                while ConfigSystem.CurrentConfig.AutoJoinHighestStory do
+                while ConfigSystem.CurrentConfig.AutoJoinLowestStory do
                     -- Lấy dữ liệu người chơi
                     local player = game:GetService("Players").LocalPlayer
                     local playerName = player.Name
@@ -1107,41 +1106,41 @@ StorySection:AddToggle("AutoJoinHighestStoryToggle", {
                     local chapterLevels = playerFolder and playerFolder:FindFirstChild("ChapterLevels")
                     -- Map thứ tự ưu tiên
                     local mapOrder = {"OnePiece", "Namek", "DemonSlayer", "Naruto", "OPM"}
-                    local highestMap, highestChapter = nil, nil
+                    local lowestMap, lowestChapter = nil, nil
                     if chapterLevels then
                         for _, map in ipairs(mapOrder) do
-                            for i = 10, 1, -1 do
+                            for i = 1, 10 do  -- duyệt chapter từ thấp đến cao
                                 local chapterName = map .. "_Chapter" .. i
                                 if chapterLevels:FindFirstChild(chapterName) then
-                                    highestMap = map
-                                    highestChapter = "Chapter" .. i
+                                    lowestMap = map
+                                    lowestChapter = "Chapter" .. i
                                     break
                                 end
                             end
-                            if highestMap then break end
+                            if lowestMap then break end
                         end
                     end
-                    if highestMap and highestChapter then
+                    if lowestMap and lowestChapter then
                         -- Đổi map và chapter
-                        changeWorld(reverseMapNameMapping[highestMap] or highestMap)
+                        changeWorld(reverseMapNameMapping[lowestMap] or lowestMap)
                         wait(0.5)
-                        changeChapter(highestMap, highestChapter)
+                        changeChapter(lowestMap, lowestChapter)
                         wait(0.5)
                         -- Join map
                         joinMap()
-                        print("Đã auto join highest story: " .. (reverseMapNameMapping[highestMap] or highestMap) .. " - " .. highestChapter)
+                        print("Đã auto join lowest story: " .. (reverseMapNameMapping[lowestMap] or lowestMap) .. " - " .. lowestChapter)
                     else
-                        print("Không tìm thấy highest story để join.")
+                        print("Không tìm thấy lowest story để join.")
                     end
                     -- Đợi trước khi thử lại
                     for _ = 1, storyTimeDelay do
-                        if not ConfigSystem.CurrentConfig.AutoJoinHighestStory then break end
+                        if not ConfigSystem.CurrentConfig.AutoJoinLowestStory then break end
                         wait(1)
                     end
                 end
             end)
         else
-            print("Auto Join Highest Story đã được tắt")
+            print("Auto Join Lowest Story đã được tắt")
         end
     end
 })
