@@ -1091,14 +1091,18 @@ local autoJoinHighestStoryEnabled = ConfigSystem.CurrentConfig.AutoJoinHighestSt
 local autoJoinHighestStoryLoop = nil
 local isInHighestStory = false
 
--- Hàm lấy map và chapter hiện tại của người chơi
-local function getCurrentMapAndChapter()
-    local player = game:GetService("Players").LocalPlayer
-    local playerData = game:GetService("ReplicatedStorage"):FindFirstChild("Player_Data")
-    local playerFolder = playerData and playerData:FindFirstChild(player.Name)
-    local currentMap = playerFolder and playerFolder:FindFirstChild("CurrentMap") and playerFolder.CurrentMap.Value
-    local currentChapter = playerFolder and playerFolder:FindFirstChild("CurrentChapter") and playerFolder.CurrentChapter.Value
-    return currentMap, currentChapter
+-- Hàm lấy giá trị Level hiện tại từ DataValue
+local function getCurrentLevel()
+    local levelValue = game:GetService("ReplicatedStorage"):FindFirstChild("Values")
+    and game:GetService("ReplicatedStorage").Values:FindFirstChild("Game")
+    and game:GetService("ReplicatedStorage").Values.Game:FindFirstChild("Level")
+
+    if levelValue then
+        print("Current Level from DataValue:", levelValue.Value)
+        return levelValue.Value
+    end
+
+    return nil
 end
 
 -- Hàm tìm và join highest story
@@ -1135,14 +1139,16 @@ local function findAndJoinHighestStory()
     end
 
     if highestMap and highestChapter then
-        local currentMap, currentChapter = getCurrentMapAndChapter()
-        if currentMap == highestMap and currentChapter == highestChapter then
-            print("Người chơi đã ở trong map cao nhất: " .. highestMap .. " - " .. highestChapter)
+        local currentLevel = getCurrentLevel()
+        local highestLevel = highestMap .. "_" .. highestChapter
+
+        if currentLevel == highestLevel then
+            print("Người chơi đang ở level cao nhất: " .. highestLevel)
             isInHighestStory = true
             return
         end
 
-        print("Đã tìm thấy highest story để join: " .. highestMap .. " - " .. highestChapter)
+        print("Đã tìm thấy highest story để join: " .. highestLevel)
 
         -- Thực hiện join map
         local function joinMap()
@@ -1155,14 +1161,14 @@ local function findAndJoinHighestStory()
             wait(0.5)
             Event:FireServer("Change-World", { ["World"] = highestMap })
             wait(0.5)
-            Event:FireServer("Change-Chapter", { ["Chapter"] = highestMap .. "_" .. highestChapter })
+            Event:FireServer("Change-Chapter", { ["Chapter"] = highestLevel })
             wait(0.5)
             Event:FireServer("Change-Difficulty", { ["Difficulty"] = "Normal" })
             wait(0.5)
             Event:FireServer("Submit")
             wait(1)
             Event:FireServer("Start")
-            print("Đã join map: " .. highestMap .. " - " .. highestChapter)
+            print("Đã join map: " .. highestLevel)
             isInHighestStory = true
         end
 
